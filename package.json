@@ -1,0 +1,19 @@
+{
+  "name": "chip8",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "davidllanos22",
+  "license": "MIT",
+  "devDependencies": {
+    "grunt": "*",
+    "grunt-babel": "*",
+    "grunt-contrib-uglify": "*",
+    "grunt-contrib-connect": "*",
+    "grunt-contrib-watch": "*"
+  }
+}
