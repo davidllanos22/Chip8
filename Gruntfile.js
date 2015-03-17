@@ -9,6 +9,7 @@ module.exports = function(grunt) {
           // dest - src
           "build/chip8.js" : "src/chip8.js",
           "build/emulator.js" : "src/emulator.js",
+          
         }
       }
     },
