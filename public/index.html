@@ -11,12 +11,46 @@
     body{
       background-color: #222;
       color: #fff;
+      font-family: "Lucida Console", Monaco, monospace;
+      font-size: 12px;
+    }
+    li{
+      list-style: none;
+    }
+    #registers{
+      margin-top: 20px;
+      border: 1px solid #fff;
+      width:100px;
+      padding: 4px;
     }
 
   </style>
 </head>
 <body>
-  Nothing here yet :D
+  <h1>CHIP 8</h1>
+  <h3>Registers</h3>
+  <div id="registers"></div>
   <script src="chip8.js"></script>
+  <canvas id="canvas"></canvas>
+  <script>
+    var registers = document.getElementById("registers");
+
+    var e = new Emulator();
+
+    updateRegistersDisplay();
+
+    function updateRegistersDisplay(){
+      while (registers.firstChild) {
+          registers.removeChild(registers.firstChild);
+      }
+      for(var i = 0; i < 16; i++){
+        
+        var li = document.createElement("li");
+        var txt = document.createTextNode("V" + i + " : " + Utils.toHex(e.chip8.V[i]));
+        li.appendChild(txt);
+        registers.appendChild(li);
+      }
+    }
+  </script>
 </body>
 </html>
