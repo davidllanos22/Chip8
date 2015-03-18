@@ -2,7 +2,10 @@ class Chip8 {
   constructor(){
     this.reset();
   }
-
+  loadGame(game){
+    for(var i = 0; i < game.byteLength; i++)
+      this.memory[i + 0x200] = game[i];
+  }
   reset(){
     var i, chars = [  0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
                       0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -53,13 +56,14 @@ class Chip8 {
     this.key = new Array(16); // Keys state array.
     for(i = 0; i < this.key.length; i++)
       this.key[0] = 0x0;
-
-    this.memory[0x200] = 0xA2; // TODO: REMOVE
-    this.memory[0x201] = 0xF0;
   }
 
   emulateCycle(){
     this.opcode = this.memory[this.PC] << 8 | this.memory[this.PC + 1];
+    var x = (this.opcode & 0x0F00) >> 8;
+    var y = (this.opcode & 0x00F0) >> 4;
+
+    console.log(Utils.toHex(this.opcode));
 
     switch(this.opcode & 0xF000){ // We just need the first 4 bits.
       case 0x0000:
@@ -85,56 +89,101 @@ class Chip8 {
           this.PC +=2;
         break;
       case 0x4000: // 4xkk | SNE Vx, byte | Skip next instruction if Vx != kk.
-        if(this.V[this.opcode & 0x0F00] != this.opcode & 0x00FF)
+        if(this.V[x] != this.opcode & 0x00FF)
           this.PC +=2;
         break;
       case 0x5000: // 5xy0 | SE Vx, Vy | Skip next instructions if Vx == Vy.
-        if(this.V[this.opcode & 0x0F00] == this.V[this.opcode & 0x00F0])
+        if(this.V[x] == this.V[y])
           this.PC +=2;
         break;
-      case 0x6000: // 6xkk | LD Vx, byte | Vx = kk.
-        this.V[this.opcode & 0x0F00] = this.opcode & 0x00FF;
+      case 0x6000: // 6xkk | LD Vx, byte | Set Vx = kk.
+        this.V[x] = this.opcode & 0x00FF;
         break;
-      case 0x7000: // 7xkk | ADD Vx, byte | Vx = Vx + kk.
-        this.V[this.opcode & 0x0F00] += this.opcode & 0x00FF;
+      case 0x7000: // 7xkk | ADD Vx, byte | Set Vx = Vx + kk.
+        this.V[x] += this.opcode & 0x00FF;
         break;
       case 0x8000:
         switch(this.opcode & 0x000F){
-          case 0x0000: // 8xy0 | LD Vx, Vy | Vx = Vy.
-            this.V[this.opcode & 0x0F00] = this.V[this.opcode & 0x00F0];
+          case 0x0000: // 8xy0 | LD Vx, Vy | Set Vx = Vy.
+            this.V[x] = this.V[y];
             break;
-          case 0x0001: // 8xy1 | OR Vx, Vy | Vx = Vx or Vy.
-            this.V[this.opcode & 0x0F00] |= this.V[this.opcode & 0x00F0];
+          case 0x0001: // 8xy1 | OR Vx, Vy | Set Vx = Vx OR Vy.
+            this.V[x] |= this.V[y];
             break;
-          case 0x0002: // 8xy2 | AND Vx, Vy | Vx = Vx and Vy.
-            this.V[this.opcode & 0x0F00] &= this.V[this.opcode & 0x00F0];
+          case 0x0002: // 8xy2 | AND Vx, Vy | Set Vx = Vx AND Vy.
+            this.V[x] &= this.V[y];
             break;
-          case 0x0003: // 8xy3 | XOR Vx, Vy | Vx = Vx xor Vy.
-            this.V[this.opcode & 0x0F00] ^= this.V[this.opcode & 0x00F0];
+          case 0x0003: // 8xy3 | XOR Vx, Vy | Set Vx = Vx XOR Vy.
+            this.V[x] ^= this.V[y];
             break;
-          case 0x0004: // 8xy4 | ADD Vx, Vy | Vx = Vx + Vy.
-            this.V[this.opcode & 0x0F00] += this.V[this.opcode & 0x00F0];
-            this.V[0xF] = this.V[this.opcode & 0x0F00] > 0xFF ? 1 : 0;
+          case 0x0004: // 8xy4 | ADD Vx, Vy | Set Vx = Vx + Vy.
+            this.V[x] += this.V[y];
+            this.V[0xF] = this.V[x] > 0xFF ? 1 : 0;
             if(this.V[0xF] == 1)
-              this.V[this.opcode & 0x0F00] -= 255;
+              this.V[x] -= 255;
             break;
           case 0x0005: // 8xy5 | SUB Vx, Vy | Vx = Vx - Vy.
-            this.V[0xF] = this.V[this.opcode & 0x0F00] > this.V[this.opcode & 0x00F0] ? 1 : 0;
-            this.V[this.opcode & 0x0F00] -= this.V[this.opcode & 0x00F0];
+            this.V[0xF] = this.V[x] > this.V[y] ? 1 : 0;
+            this.V[x] -= this.V[y];
             if(this.V[0xF] == 0)
-              this.V[this.opcode & 0x0F00] += 255;
+              this.V[x] += 255;
             break;
           case 0x0006: // 8xy6 | SHR Vx {, Vy} | Vx = Vx SHR 1. 
-            //------------------
-            this.V[0xF] = this.V[this.opcode & 0x0F00] & 0x1;
-            this.V[this.opcode & 0x0F00] -= this.V[this.opcode & 0x00F0];
+            this.V[0xF] = this.V[x] & 0x1;
+            this.V[x] >>= 1;
+            break;
+          case 0x0007: // 8xy7 | SUBN Vx, Vy | Vx = Vy - Vx. 
+            this.V[0xF] = this.V[y] > this.V[x] ? 1 : 0;
+            this.V[x] = this.V[y] - this.V[x];
+            if(this.V[0xF] == 0)
+              this.V[x] += 255;
+            break;
+          case 0x00E: // 8xyE | SHL Vx {, Vy} | Vx = vX SHL 1.
+            this.V[0xF] = this.V[x] & 0x1;
+            this.V[x] <<= 1;
+            if(this.V[x] > 255) this.V[x] -= 255;
             break;
         }
         break;
-      case 0xA000:
+      case 0x9000: // 9xy0 | SNE Vx, Vy | Skip bext instruction if Vx != Vy.
+        if(this.V[x] != this.V[y])
+          this.CP += 2;
+        break;
+      case 0xA000: // Annn | LD I, addr | Set I = nnn.
         this.I = this.opcode & 0x0FFF;
         this.PC += 2;
-        console.log(Utils.toHex(this.opcode));
+        break;
+      case 0xB000: // Bnnn | JP V0, addr | Jump to location nnn + V0.
+        this.PC = (this.opcode & 0x0FFF) + this.V[0x0]; 
+        break;
+      case 0xC000: // Cxkk | RND Vx, byte | Set Vx = random byte AND kk.
+        this.V[x] = Math.floor(Math.random() * 0xFF) & (this.opcode & 0x00FF);
+        break;
+      case 0xD000: // Dxyn | DRW Vx, Vy, nibble | Display sprite and set VF = collision.
+        var n = this.opcode & 0x000F;
+        var ax = this.V[x];
+        var ay = this.V[y];
+
+        for(var i = 0; i < n; i++){
+          var pixel = this.memory[this.I + i];
+          for(var j = 0; j < 8; j++){
+            if((pixel & (0x80 >> i)) != 0){
+              var px = ax + j;
+              var py = ay + i;
+
+              if(py >= 64) py-= 64;
+              if(py < 0) py += 64;
+              if(py >= 32) py-= 32;
+              if(py < 0) py += 32;
+              
+            
+              if(this.screen[px + (py * 64)] == 1) // Collision!
+                this.V[0xF] = 1;
+
+              this.screen[px + (py * 64)] ^= 1;
+            }
+          }
+        }
         break;
 
       default:
@@ -150,6 +199,8 @@ class Chip8 {
         console.log("BEEP");
       this.soundTimer--;
     }
+
+    this.PC += 2;
   }
 
   clearDisplay(){
