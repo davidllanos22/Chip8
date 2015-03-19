@@ -12,9 +12,8 @@ class Emulator {
                           ["#1493A5","#F1EADC"],
                           ["#003A54","#325D6F"]
     ];
-   
+    this.n = 0;
     this.palette = Math.round(Math.random() * (this.paletteList.length - 1));
-    console.log(this.palette);
   }
   load(){
     var xhr = new XMLHttpRequest;
@@ -23,31 +22,34 @@ class Emulator {
 
     xhr.onload = () => {
       var game = new Uint8Array(xhr.response);
+      this.chip8.reset();
       this.chip8.loadGame(game);
       this.loop();
     };
 
     xhr.send();
-
-    
   }
   loop(){
 
     setTimeout(()=> {
-      this.chip8.emulateCycle();
-      updateRegistersDisplay();
-      
-      this.ctx.fillStyle = this.paletteList[this.palette][0];
-      this.ctx.fillRect(0, 0, 640, 320);
-      this.ctx.fillStyle = this.paletteList[this.palette][1];
-      for(var x = 0; x < 64; x++){
-        for(var y = 0; y < 32; y++){
-          if(this.chip8.screen[x + (y * 64)])
-            this.ctx.fillRect(x*10, y*10, 10, 10);
+      if(this.n > -1){
+        this.chip8.emulateCycle();
+        updateRegistersDisplay();
+        updateMemoryDisplay();
+        updateOthers();
+        
+        this.ctx.fillStyle = this.paletteList[this.palette][0];
+        this.ctx.fillRect(0, 0, 640, 320);
+        this.ctx.fillStyle = this.paletteList[this.palette][1];
+        for(var x = 0; x < 64; x++){
+          for(var y = 0; y < 32; y++){
+            if(this.chip8.screen[x + (y * 64)])
+              this.ctx.fillRect(x * 10, y * 10, 10, 10);
+          }
         }
+        this.n++;
       }
-
       window.requestAnimationFrame(() => {this.loop()});
-    },100);
+    },300);
   }
 }
