@@ -1,10 +1,15 @@
 class Chip8 {
   constructor(){
-    this.debug = true;
+    this.debug = false;
   }
   loadGame(game){
     for(var i = 0; i < game.byteLength; i++)
       this.memory[i + 0x200] = game[i];
+  }
+
+  clearDisplay(){
+    for(var i = 0; i < this.screen.length; i++)
+      this.screen[i] = 0x0;
   }
   reset(){
     var i, chars = [  0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -27,7 +32,8 @@ class Chip8 {
 
     this.opcode = 0x0; // Operation Code.
 
-    this.memory = new Array(4096); // Memory Addresses.
+    var memory = new ArrayBuffer(0x1000);
+    this.memory = new Uint8Array(memory); // Memory Addresses.
     for(i = 0; i < this.memory.length; i++)
       this.memory[i] = 0x0;
 
@@ -57,7 +63,9 @@ class Chip8 {
     for(i = 0; i < this.key.length; i++)
       this.key[0] = 0x0;
 
+
     this.state = 2;
+    this.draw = false;
   }
 
   emulateCycle(){
@@ -65,11 +73,22 @@ class Chip8 {
     var x = (this.opcode & 0x0F00) >> 8;
     var y = (this.opcode & 0x00F0) >> 4;
 
-    switch(this.opcode & 0xF000){ // We just need the first 4 bits.
+    if(this.delayTimer > 0)
+      this.delayTimer--;
+
+    if(this.soundTimer > 0){
+      if(this.soundTimer == 1)
+        console.log("BEEP");
+      this.soundTimer--;
+    }
+
+    switch(this.opcode & 0xF000){ // We just need the right most 4 bits.
       case 0x0000:
         switch(this.opcode & 0xF000){
           case 0x00E0: // 00E0 | CLS | Clear the Display.
             this.clearDisplay();
+            console.log("CLS");
+            this.draw = true;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " CLS");
             break;
           case 0x00EE: // 00EE | RET | Return from a subroutine.
@@ -85,7 +104,8 @@ class Chip8 {
         if(this.debug) console.log(Utils.toHex(this.opcode) + " JP addr");
         break;
       case 0x2000: // 2nnn | CALL addr | Call subroutine at nnn.
-        this.stack[this.SP++] = this.PC;
+        this.stack[this.SP] = this.PC;
+        this.SP++;
         this.PC = this.opcode & 0x0FFF;
         this.state = 0;
         if(this.debug) console.log(Utils.toHex(this.opcode) + " CALL addr");
@@ -110,7 +130,10 @@ class Chip8 {
         if(this.debug) console.log(Utils.toHex(this.opcode) + " LD Vx, byte");
         break;
       case 0x7000: // 7xkk | ADD Vx, byte | Set Vx = Vx + kk.
-        this.V[x] += (this.opcode & 0x00FF);
+        var v = (this.opcode & 0x00FF) + this.V[x]
+        if(v > 255)
+          v -= 256;
+        this.V[x] = v;
         if(this.debug) console.log(Utils.toHex(this.opcode) + " ADD Vx, byte");
         break;
       case 0x8000:
@@ -133,16 +156,14 @@ class Chip8 {
             break;
           case 0x0004: // 8xy4 | ADD Vx, Vy | Set Vx = Vx + Vy.
             this.V[x] += this.V[y];
-            this.V[0xF] = this.V[x] > 0xFF ? 1 : 0;
-            if(this.V[0xF] == 1)
-              this.V[x] -= 255;
+            this.V[0xF] = +(this.v[x] > 255);
+            if(this.V[x] > 255) this.V[x] -= 256;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " ADD Vx, Vy");
             break;
           case 0x0005: // 8xy5 | SUB Vx, Vy | Vx = Vx - Vy.
-            this.V[0xF] = this.V[x] > this.V[y] ? 1 : 0;
+            this.V[0xF] = +(this.V[x] > this.V[y]);
             this.V[x] -= this.V[y];
-            if(this.V[0xF] == 0)
-              this.V[x] += 255;
+            if(this.V[x] < 0) this.V[x] += 256;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SUB Vx, Vy");
             break;
           case 0x0006: // 8xy6 | SHR Vx {, Vy} | Vx = Vx SHR 1. 
@@ -151,16 +172,15 @@ class Chip8 {
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SHR Vx {, Vy}");
             break;
           case 0x0007: // 8xy7 | SUBN Vx, Vy | Vx = Vy - Vx. 
-            this.V[0xF] = this.V[y] > this.V[x] ? 1 : 0;
+            this.V[0xF] = +(this.V[y] > this.V[x]);
             this.V[x] = this.V[y] - this.V[x];
-            if(this.V[0xF] == 0)
-              this.V[x] += 255;
+            if(this.V[x] < 0) this.V[x] += 256;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SUBN Vx, Vy");
             break;
           case 0x00E: // 8xyE | SHL Vx {, Vy} | Vx = vX SHL 1.
-            this.V[0xF] = (this.V[x] & 0x1);
+            this.V[0xF] = +(this.V[x] & 0x80);
             this.V[x] <<= 1;
-            if(this.V[x] > 255) this.V[x] -= 255;
+            if(this.V[x] > 255) this.V[x] -= 256;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SHL Vx {, Vy}");
             break;
         }
@@ -185,20 +205,21 @@ class Chip8 {
         if(this.debug) console.log(Utils.toHex(this.opcode) + " RND Vx, byte");
         break;
       case 0xD000: // Dxyn | DRW Vx, Vy, nibble | Display sprite and set VF = collision.
+        this.V[0xF] = 0;
         var n = (this.opcode & 0x000F);
         var ax = this.V[x];
         var ay = this.V[y];
+        
+        for(var y = 0; y < n; y++){
+          var pixel = this.memory[this.I + y];
+          for(var x = 0; x < 8; x++){
+            if((pixel & 0x80 >> x) != 0){
+              var px = ax + x;
+              var py = ay + y;
 
-        for(var i = 0; i < n; i++){
-          var pixel = this.memory[this.I + i];
-          for(var j = 0; j < 8; j++){
-            if((pixel & (0x80 >> i)) != 0){
-              var px = ax + j;
-              var py = ay + i;
-
-              if(py >= 64) py-= 64;
-              if(py < 0) py += 64;
-              if(py >= 32) py-= 32;
+              if(px > 64) px -= 64;
+              if(px < 0) px += 64;
+              if(py > 32) py -= 32;
               if(py < 0) py += 32;
             
               if(this.screen[px + (py * 64)] == 1) // Collision!
@@ -208,17 +229,18 @@ class Chip8 {
             }
           }
         }
+        this.draw = true;
         if(this.debug) console.log(Utils.toHex(this.opcode) + " DRW Vx, Vy, nibble");
         break;
       case 0xE000:
         switch(this.opcode & 0x0FFF){
           case 0x009E: // Ex9E | SKP Vx | Skip next instruction if key Vx is pressed.
-            if(this.key[this.V[x]] != 0)
+            if(this.key[this.V[x]])
               this.state = 4;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SKP Vx");
             break;
           case 0x00A1: // ExA1 | SKNP Vx | Skip next instruction if key Vx is not pressed.
-            if(this.key[this.V[x]] == 0)
+            if(!this.key[this.V[x]])
               this.state = 4;
             if(this.debug) console.log(Utils.toHex(this.opcode) + " SKNP Vx");
             break;
@@ -249,7 +271,7 @@ class Chip8 {
             if(this.debug) console.log(Utils.toHex(this.opcode) + " ADD I, Vx");
             break;
           case 0x0029: // Fx29 | LD F, Vx | Set I = location of sprite for digit Vx.
-            this.I = this.V[x];
+            this.I = (this.V[x] * 0x5);
             if(this.debug) console.log(Utils.toHex(this.opcode) + " LD F, Vx");
             break;
           case 0x0033: // Fx33 | LD B, Vx | Store BCD of Vx in I, I+1 and I+2.
@@ -275,22 +297,12 @@ class Chip8 {
         console.log("Unknown opcode: " + Utils.toHex(this.opcode));
     }
 
-    if(this.delayTimer > 0)
-      this.delayTimer--;
-
-    if(this.soundTimer > 0){
-      if(this.soundTimer == 1)
-        console.log("BEEP");
-      this.soundTimer--;
-    }
+   
     this.PC += this.state;
     this.state = 2;
   }
 
-  clearDisplay(){
-    for(var i = 0; i < this.screen.length; i++)
-      this.screen[i] = 0x0;
-  }
+  
 }
 
 class Utils {

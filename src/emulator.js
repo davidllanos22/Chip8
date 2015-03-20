@@ -17,7 +17,7 @@ class Emulator {
   }
   load(){
     var xhr = new XMLHttpRequest;
-    xhr.open("GET", "roms/brix", true);
+    xhr.open("GET", "roms/invaders", true);
     xhr.responseType = "arraybuffer";
 
     xhr.onload = () => {
@@ -37,19 +37,21 @@ class Emulator {
         updateRegistersDisplay();
         updateMemoryDisplay();
         updateOthers();
-        
-        this.ctx.fillStyle = this.paletteList[this.palette][0];
-        this.ctx.fillRect(0, 0, 640, 320);
-        this.ctx.fillStyle = this.paletteList[this.palette][1];
-        for(var x = 0; x < 64; x++){
-          for(var y = 0; y < 32; y++){
-            if(this.chip8.screen[x + (y * 64)])
-              this.ctx.fillRect(x * 10, y * 10, 10, 10);
+        if(this.chip8.draw){
+          this.ctx.fillStyle = this.paletteList[this.palette][0];
+          this.ctx.fillRect(0, 0, 640, 320);
+          this.ctx.fillStyle = this.paletteList[this.palette][1];
+          for(var x = 0; x < 64; x++){
+            for(var y = 0; y < 32; y++){
+              if(this.chip8.screen[x + (y * 64)])
+                this.ctx.fillRect(x * 10, y * 10, 10, 10);
+            }
           }
+          this.chip8.draw = false;
         }
         this.n++;
       }
       window.requestAnimationFrame(() => {this.loop()});
-    },300);
+    },0);
   }
 }
