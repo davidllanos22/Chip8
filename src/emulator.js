@@ -33,10 +33,11 @@ class Emulator {
 
     setTimeout(()=> {
       if(this.n > -1){
-        this.chip8.emulateCycle();
-        updateRegistersDisplay();
-        updateMemoryDisplay();
-        updateOthers();
+        for(var i = 0; i < 1; i++)
+          this.chip8.emulateCycle();
+        // updateRegistersDisplay();
+        // updateMemoryDisplay();
+        // updateOthers();
         if(this.chip8.draw){
           this.ctx.fillStyle = this.paletteList[this.palette][0];
           this.ctx.fillRect(0, 0, 640, 320);
@@ -52,6 +53,6 @@ class Emulator {
         this.n++;
       }
       window.requestAnimationFrame(() => {this.loop()});
-    },0);
+    },100);
   }
 }
